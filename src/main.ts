@@ -1,7 +1,6 @@
 import './styles/style.css';
 import {
   createProgram,
-  createRectangleVertex,
   enableAttrib,
   initAttributeAndBuffer,
   initGL,
@@ -13,12 +12,14 @@ import fragmentShader from './shaders/fragment-shader.glsl?raw';
 import { getRandomImage, ImageData } from './api';
 import { setUnsplashCredit } from './ui';
 
+const debug = import.meta.env.DEV && import.meta.env.VITE_DEBUG;
+
 interface LoadImage extends ImageData {
   image: HTMLImageElement;
 }
 
 async function loadImage() {
-  const imageData = await getRandomImage();
+  const imageData = await getRandomImage(debug);
 
   return new Promise<LoadImage>((resolve) => {
     const image = new Image();
@@ -37,16 +38,15 @@ function initWebGL() {
   const { gl, canvas } = initGL('c');
   const program = createProgram(gl, vertexShader, fragmentShader);
 
-  const rectangle = createRectangleVertex(0, 0, 500, 500);
-  const position = initAttributeAndBuffer(gl, program, 'a_position', rectangle);
-  const texCoord = initAttributeAndBuffer(
+  const position = initAttributeAndBuffer(
     gl,
     program,
-    'a_texCoord',
-    [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0],
+    'a_position',
+    [-1, -1, -1, 1, 1, -1, 1, -1, -1, 1, 1, 1],
   );
 
   const resolutionLocation = initUniform(gl, program, 'u_resolution');
+  const tilesLocation = initUniform(gl, program, 'u_tiles');
 
   return {
     gl,
@@ -54,10 +54,10 @@ function initWebGL() {
     program,
     attributes: {
       position,
-      texCoord,
     },
     uniforms: {
       resolutionLocation,
+      tilesLocation,
     },
   };
 }
@@ -70,9 +70,11 @@ function draw(
     gl,
     canvas,
     program,
-    attributes: { position, texCoord },
+    attributes: { position },
     uniforms,
   } = programInfo;
+
+  const tiles = 4; // TODO: set by user
 
   resizeCanvasToDisplaySize(canvas);
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -81,9 +83,6 @@ function draw(
   gl.useProgram(program);
 
   enableAttrib(gl, position, 2);
-  enableAttrib(gl, texCoord, 2);
-
-  gl.uniform2f(uniforms.resolutionLocation, canvas.width, canvas.height);
 
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -94,6 +93,9 @@ function draw(
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+  gl.uniform2f(uniforms.resolutionLocation, canvas.width, canvas.height);
+  gl.uniform1f(uniforms.tilesLocation, tiles);
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
