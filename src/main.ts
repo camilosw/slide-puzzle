@@ -12,6 +12,7 @@ import vertexShader from './shaders/vertex-shader.glsl?raw';
 import fragmentShader from './shaders/fragment-shader.glsl?raw';
 import { getRandomImage, ImageData } from './api';
 import { setUnsplashCredit } from './ui';
+import { DragInfo, getDragInfo } from './dragInfo';
 
 const debug = import.meta.env.DEV && import.meta.env.VITE_DEBUG;
 
@@ -50,6 +51,7 @@ function initWebGL() {
   const tilesLocation = initUniform(gl, program, 'u_tiles');
   const textureLocation = initUniform(gl, program, 'u_texture');
   const offsetLocation = initUniform(gl, program, 'u_offset');
+  const displacementLocation = initUniform(gl, program, 'u_displacement');
 
   return {
     gl,
@@ -63,6 +65,7 @@ function initWebGL() {
       tilesLocation,
       textureLocation,
       offsetLocation,
+      displacementLocation,
     },
   };
 }
@@ -79,6 +82,7 @@ const offset = [
 function draw(
   programInfo: ReturnType<typeof initWebGL>,
   image: HTMLImageElement,
+  dragInfo: DragInfo,
 ) {
   const {
     gl,
@@ -125,13 +129,21 @@ function draw(
 
   gl.uniform2f(uniforms.resolutionLocation, canvas.width, canvas.height);
   gl.uniform1f(uniforms.tilesLocation, tiles);
+  gl.uniform2f(
+    uniforms.displacementLocation,
+    dragInfo.displacement.x / canvas.width,
+    dragInfo.displacement.y / canvas.height,
+  );
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  requestAnimationFrame(() => draw(programInfo, image, dragInfo));
 }
 
 (async function () {
   const programInfo = initWebGL();
   const imageData = await loadImage();
   setUnsplashCredit(imageData.name, imageData.username);
-  draw(programInfo, imageData.image);
+  const dragInfo = getDragInfo(programInfo.canvas);
+  draw(programInfo, imageData.image, dragInfo);
 })();
