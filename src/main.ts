@@ -52,6 +52,11 @@ function initWebGL() {
   const textureLocation = initUniform(gl, program, 'u_texture');
   const offsetLocation = initUniform(gl, program, 'u_offset');
   const displacementLocation = initUniform(gl, program, 'u_displacement');
+  const displacementOriginLocation = initUniform(
+    gl,
+    program,
+    'u_displacement_origin',
+  );
 
   return {
     gl,
@@ -66,6 +71,7 @@ function initWebGL() {
       textureLocation,
       offsetLocation,
       displacementLocation,
+      displacementOriginLocation,
     },
   };
 }
@@ -134,10 +140,22 @@ function draw(
     dragInfo.displacement.x / canvas.width,
     dragInfo.displacement.y / canvas.height,
   );
+  gl.uniform2f(
+    uniforms.displacementOriginLocation,
+    (dragInfo.startPoint.x || 0) / canvas.width,
+    (dragInfo.startPoint.y || 0) / canvas.height,
+  );
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
 
-  requestAnimationFrame(() => draw(programInfo, image, dragInfo));
+function drawLoop(
+  programInfo: ReturnType<typeof initWebGL>,
+  image: HTMLImageElement,
+  dragInfo: DragInfo,
+) {
+  draw(programInfo, image, dragInfo);
+  requestAnimationFrame(() => drawLoop(programInfo, image, dragInfo));
 }
 
 (async function () {
@@ -145,5 +163,5 @@ function draw(
   const imageData = await loadImage();
   setUnsplashCredit(imageData.name, imageData.username);
   const dragInfo = getDragInfo(programInfo.canvas);
-  draw(programInfo, imageData.image, dragInfo);
+  drawLoop(programInfo, imageData.image, dragInfo);
 })();
